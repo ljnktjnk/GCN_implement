@@ -1,0 +1,6 @@
+torch==1.10.1
+torch_geometric==2.0.3
+networkx==2.5.1
+sentence-transformers==0.2.6.1
+bpemb==0.3.3
+scikit-learn==0.20.1
