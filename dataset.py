@@ -91,7 +91,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Make graph data')
     parser.add_argument('-input', type=str, default="./GCN_data/csv", help='input folder csv')
     parser.add_argument('-output', type=str, default="./GCN_data/processed", help='output path to save data')
-    parser.add_argument('-cls', type=list, default=["com_name", "com_pos", "time", "other"], help='array class')
+    parser.add_argument('-cls', nargs="+", default=["com_name", "com_pos", "time", "other"], help='array class')
 
     args = parser.parse_args().__dict__
 
