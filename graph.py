@@ -20,7 +20,8 @@ class Grapher:
     def __init__(self, file_path):
         self.file_path = file_path
         image_path = file_path.replace(".csv", ".jpg").replace("/csv/", "/images/")
-        self.df = pd.read_csv(file_path, sep="\t")
+        self.df = pd.read_csv(file_path, sep=",")
+        # print(image_path)
         self.image = cv2.imread(image_path)
         
     def graph_formation(self, export_graph = False):
@@ -91,7 +92,7 @@ class Grapher:
                         if not idx == idx_2:
                             top_b = row_2['ymin']
                             bottom_b = row_2['ymax'] 
-                            if (top_a <= bottom_b) and (bottom_a >= top_b): 
+                            if (top_a <= bottom_b) and (bottom_a - ((bottom_a-top_a)//2) >= top_b): 
                                 line.append(idx_2)
             
                 master.append(line)
@@ -142,6 +143,9 @@ class Grapher:
         # horizontal edges formation
         df.reset_index(inplace=True)
         grouped = df.groupby('line_number')
+        # pd.set_option('display.max_rows', df.shape[0]+1)
+        # print(df)
+        # exit()
         # for undirected graph construction
         horizontal_connections = {}
         # left
@@ -184,29 +188,125 @@ class Grapher:
         # verticle connections formation
         bottom_connections = {}
         top_connections = {}
+        distance_connection = {}
 
-        for idx, row in df.iterrows():
-            if idx not in bottom_connections.keys():
-                right_a = row['xmax']
-                left_a = row['xmin']
+        for src_idx, src_row in df.iterrows():
+            
+            # ================= vertical ======================= #
+            src_range_x = (src_row['xmin'], src_row['xmax'])
+            src_center_y = (src_row['ymin'] + src_row['ymax'])/2
+            src_center_x = (src_row['xmin'] + src_row['xmax'])/2
 
-                for idx_2, row_2 in df.iterrows():
-                    # check for higher idx values 
+            dest_attr_vert = []
 
-                    if idx_2 not in bottom_connections.values() and idx < idx_2:
-                            right_b = row_2['xmax']
-                            left_b = row_2['xmin'] 
-                            if (left_b <= right_a) and (right_b >= left_a): 
-                                bottom_connections[idx] = idx_2                
-                                top_connections[idx_2] = idx
+            for dest_idx, dest_row in df.iterrows():
+                # flag to signal whether the destination object is below source
+                is_beneath = False
+                if not src_idx == dest_idx:
+                    # ==================== vertical ==========================#
+                    dest_range_x = (dest_row['xmin'], dest_row['xmax'])
+                    dest_center_y = (dest_row['ymin'] + dest_row['ymax'])/2
+                    dest_center_x = (dest_row['xmin'] + dest_row['xmax'])/2
+                    
+                    # height = (dest_center_y - src_center_y)**2 + (dest_center_x - src_center_x)**2
+                    height = dest_center_y - src_center_y
+                    # if src_row["line_number"] != dest_row["line_number"] - 1:
+                    #     continue
 
-                                # add it to the dataframe
-                                df.loc[df['index'] == idx , 'bottom'] = idx_2
-                                df.loc[df['index'] == idx_2, 'top'] = idx 
-                
-                                # once the condition is met, break the loop to reduce redundant time complexity
-                                break 
+                    # consider only the cases where destination object lies 
+                    # below source
+                    if dest_center_y > src_center_y:
+                        # check if horizontal range of dest lies within range 
+                        # of source
+
+                        # case 1
+                        if dest_range_x[0] <= src_range_x[0] and \
+                            dest_range_x[1] >= src_range_x[1]:
+                            
+                            x_common = (src_range_x[0] + src_range_x[1])/2
+                            
+                            line_src = (x_common , src_center_y)
+                            line_dest = (x_common, dest_center_y)
+
+                            attributes = (dest_idx, line_src, line_dest, height,src_idx)
+                            dest_attr_vert.append(attributes)
+                            
+                            is_beneath = True
+
+                        # case 2
+                        elif dest_range_x[0] >= src_range_x[0] and \
+                            dest_range_x[1] <= src_range_x[1]:
+                            
+                            x_common = (dest_range_x[0] + dest_range_x[1])/2
+                            
+                            line_src = (x_common, src_center_y)
+                            line_dest = (x_common, dest_center_y)
+                            
+                            attributes = (dest_idx, line_src, line_dest, height,src_idx)
+                            dest_attr_vert.append(attributes)
+                            
+                            is_beneath = True
+
+                        # case 3
+                        elif dest_range_x[0] <= src_range_x[0] and \
+                            dest_range_x[1] >= src_range_x[0] and \
+                                dest_range_x[1] < src_range_x[1]:
+
+                            x_common = (src_range_x[0] + dest_range_x[1])/2
+
+                            line_src = (x_common , src_center_y)
+                            line_dest = (x_common, dest_center_y)
+
+                            attributes = (dest_idx, line_src, line_dest, height,src_idx)
+                            dest_attr_vert.append(attributes)
+
+                            is_beneath = True
+
+                        # case 4
+                        elif dest_range_x[0] <= src_range_x[1] and \
+                            dest_range_x[1] >= src_range_x[1] and \
+                                dest_range_x[0] > src_range_x[0]:
+                            
+                            x_common = (dest_range_x[0] + src_range_x[1])/2
+                            
+                            line_src = (x_common , src_center_y)
+                            line_dest = (x_common, dest_center_y)
+
+                            attributes = (dest_idx, line_src, line_dest, height,src_idx)
+                            dest_attr_vert.append(attributes)
+
+                            is_beneath = True
+            
+            dest_attr_vert_sorted = sorted(dest_attr_vert, key = lambda x: x[3])
+            if len(dest_attr_vert_sorted) == 0:
+                pass
+            else:
+                # if src_idx in bottom_connections or dest_idx in top_connections:
+                #     continue
+                src_idx = dest_attr_vert_sorted[0][4]
+                dest_idx = dest_attr_vert_sorted[0][0]
+                distance = dest_attr_vert_sorted[0][3]
+                if dest_idx not in top_connections.keys():
+                    bottom_connections[src_idx] = dest_idx                
+                    top_connections[dest_idx] = src_idx
+                    distance_connection[dest_idx] = distance
+
+                    df.loc[df['index'] == src_idx , 'bottom'] = dest_idx
+                    df.loc[df['index'] == dest_idx, 'top'] = src_idx
+                else:
+                    if (dest_idx in distance_connection.keys() and distance_connection[dest_idx] > distance):
                         
+                        del bottom_connections[top_connections[dest_idx]]
+                        df.loc[df['index'] == top_connections[dest_idx], 'bottom'] = np.NaN
+
+                        bottom_connections[src_idx] = dest_idx                
+                        top_connections[dest_idx] = src_idx
+                        distance_connection[dest_idx] = distance
+
+                        df.loc[df['index'] == src_idx , 'bottom'] = dest_idx
+                        df.loc[df['index'] == dest_idx, 'top'] = src_idx
+
+        # print(df)  
         # combining both 
         result = {}
         dic1 = horizontal_connections
@@ -372,6 +472,8 @@ class Grapher:
                                 (int(source_x), int(source_y)),
                                 (int(row['destination_x_vert']), int(row['destination_y_vert'])), 
                                 (0,255,0), 2)
+                        cv2.circle(img, (int(source_x), int(source_y)), 8, (255,0,0), -1)
+                        cv2.circle(img, (int(row['destination_x_vert']), int(row['destination_y_vert'])), 8, (255,0,0), -1)
 
 
                         text = "{:.3f}".format(row['rd_b'])
@@ -389,11 +491,14 @@ class Grapher:
                         cv2.line(img, 
                             (int(source_x), int(source_y)),
                             (int(row['destination_x_hori']), int(row['destination_y_hori'])), \
-                            (0,255,0), 2)
+                            (255,0,0), 2)
 
                         text = "{:.3f}".format(row['rd_r'])
                         text_coordinates = (int((row['destination_x_hori'] + source_x)/2) , int((row['destination_y_hori'] +source_y)/2))     
                         cv2.putText(img, text, text_coordinates, cv2.FONT_HERSHEY_DUPLEX, 0.4, (255,0,0), 1)
+
+                        cv2.circle(img, (int(source_x), int(source_y)), 8, (255,0,0), -1)
+                        cv2.circle(img, (int(row['destination_x_hori']), int(row['destination_y_hori'])), 8, (255,0,0), -1)
 
                 if not os.path.exists('./GCN_data/draw_images'):
                     os.makedirs('./GCN_data/draw_images')			
