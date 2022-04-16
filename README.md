@@ -21,6 +21,9 @@
 
     python dataset.py -input {csv folder contain csv file} -output {folder contain train and test dataset} -cls {list of labels} 
 
+    ex:
+        python dataset.py -cls com_name com_pos time other
+
 ## Train
     python train.py 
 
