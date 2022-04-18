@@ -26,7 +26,7 @@ files = glob.glob("./GCN_data/csv/*.csv")
 for file in files:
     print("path: ", file)
     image_path = file.replace(".csv", ".jpg").replace("/csv/", "/images/")
-    img = cv2.imread(image_path)[:, :, ::-1]
+    img = cv2.imread(image_path)
     
     t0 = time.time()
     individual_data, df = make_graph(file, classes)
